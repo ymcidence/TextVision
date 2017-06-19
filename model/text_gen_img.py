@@ -1,5 +1,6 @@
 import tensorflow as tf
 import model.abc_net as an
+from six.moves import xrange
 from util.layers import conventional_layers as layers
 from util.layers import attention
 from util.layers import nets
@@ -56,6 +57,13 @@ class TextGenImage(an.AbstractNet):
                 fake_decision = nets.net_discriminator(fake_image)
             with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET, reuse=True):
                 real_decision = nets.net_discriminator(self.batch_image)
+
+        tf.summary.image(an.NAME_SCOPE_GENERATIVE_NET + '/gen_im', fake_image)
+        tf.summary.image(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/real_im', self.batch_image)
+        tf.summary.histogram(an.NAME_SCOPE_GENERATIVE_NET + '/gen_dec_hist', fake_decision)
+        tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/dis_dec_hist', real_decision)
+        tf.summary.histogram(an.NAME_SCOPE_GENERATIVE_NET + '/gen_im_hist', (fake_image + 1) / 2 * 255.)
+        tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/real_im_hist', self.batch_image)
         return fake_image, fake_decision, real_decision
 
     def _build_loss(self):
@@ -85,3 +93,7 @@ class TextGenImage(an.AbstractNet):
         op_dis = trainer2.minimize(self.loss[1], var_list=train_list_dis, global_step=self.g_step)
 
         return op_gen, op_dis
+
+    def train(self, max_iter, dataset):
+        for i in xrange(max_iter):
+            a = 1
