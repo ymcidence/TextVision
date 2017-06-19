@@ -2,15 +2,16 @@ import tensorflow as tf
 from util.layers.conventional_layers import fc_layer
 
 
-def sequential_attention(tensor_in, attention_size, time_ordered=True):
+def sequential_attention(name, tensor_in, attention_size, time_ordered=True):
     """
     Attention mechanism layer which reduces RNN outputs with Attention vector.
+    :param name:
     :param tensor_in: hehe
     :param attention_size: output feature length
     :param time_ordered: True=[T,N,D], False=[N,T,D]
     :return: attended feature
     """
-    with tf.variable_scope('s_attention'):
+    with tf.variable_scope(name):
         if time_ordered:
             tensor_in = tf.transpose(tensor_in, perm=[1, 0, 2])
 
@@ -33,5 +34,5 @@ def sequential_attention(tensor_in, attention_size, time_ordered=True):
 
 if __name__ == '__main__':
     aa = tf.zeros([5, 10, 10])
-    a = sequential_attention(aa, 62)
+    a = sequential_attention('hehe', aa, 62)
     print(str(a))
