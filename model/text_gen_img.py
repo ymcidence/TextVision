@@ -75,4 +75,13 @@ class TextGenImage(an.AbstractNet):
     def _build_opt(self):
         trainer1 = tf.train.AdamOptimizer(0.0002, beta1=0.5)
         trainer2 = tf.train.AdamOptimizer(0.0002, beta1=0.5)
+        train_list_gen = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_GENERATIVE_NET)
+        train_list_dis = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_DISCRIMINATIVE_NET)
+        train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+                                               scope=NAME_SCOPE_ATTENTION + '/' + SUB_SCOPE_TEXT)
+        train_list_gen = train_list_gen + train_list_att_txt
+        train_list_dis = train_list_dis + train_list_att_txt
+        op_gen = trainer1.minimize(self.loss[0], var_list=train_list_gen, global_step=self.g_step)
+        op_dis = trainer2.minimize(self.loss[1], var_list=train_list_dis, global_step=self.g_step)
 
+        return op_gen, op_dis
