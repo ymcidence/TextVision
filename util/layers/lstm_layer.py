@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-def lstm_layer(name, tensor_in, out_length, num_layers, ):
+def lstm_layer(name, tensor_in, out_length, num_layers):
     def build_lstm(_out_length):
         lstm_cell = tf.contrib.rnn.LSTMCell(_out_length, initializer=tf.random_uniform_initializer(-0.1, 0.1),
                                             forget_bias=1.)

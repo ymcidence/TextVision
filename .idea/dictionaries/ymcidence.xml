@@ -3,9 +3,12 @@
     <words>
       <w>convolutional</w>
       <w>hehe</w>
+      <w>linspace</w>
       <w>lstm</w>
+      <w>meshgrid</w>
       <w>softmax</w>
       <w>tensorflow</w>
+      <w>vstack</w>
     </words>
   </dictionary>
 </component>

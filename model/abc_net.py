@@ -21,7 +21,7 @@ class AbstractNet(metaclass=ABCMeta):
     @abstractmethod
     def _build_opt(self): pass
 
-    def train(self, max_iter, dataset): pass
+    def train(self, max_iter, dataset, restore_file=None): pass
 
     def _restore(self, restore_file):
         save_list = tf.trainable_variables()

@@ -1,13 +1,14 @@
 import tensorflow as tf
+
 from util.layers import conventional_layers as layers
 
 
 def net_generator(input_tensor):
     weights_initializer = tf.random_normal_initializer(stddev=0.02)
     biases_initializer = tf.constant_initializer(0.)
-    fc_1 = layers.fc_layer('fc_0', input_tensor, 4 * 4 * 256, weights_initializer=weights_initializer,
+    fc_1 = layers.fc_layer('fc_0', input_tensor, 2 * 4 * 256, weights_initializer=weights_initializer,
                            biases_initializer=biases_initializer)
-    fc_1 = tf.reshape(fc_1, [-1, 4, 4, 256])
+    fc_1 = tf.reshape(fc_1, [-1, 2, 4, 256])
     fc_1 = tf.nn.relu(tf.layers.batch_normalization(fc_1, momentum=0.9, epsilon=1e-5))
 
     t_conv_1 = tf.layers.conv2d_transpose(fc_1, 512, 5, (2, 2), padding='SAME',
@@ -19,10 +20,13 @@ def net_generator(input_tensor):
     t_conv_3 = tf.layers.conv2d_transpose(t_conv_2, 128, 5, (2, 2), padding='SAME',
                                           bias_initializer=biases_initializer, kernel_initializer=weights_initializer)
     t_conv_3 = tf.nn.relu(tf.layers.batch_normalization(t_conv_3, momentum=0.9, epsilon=1e-5))
-
-    t_conv_4 = tf.layers.conv2d_transpose(t_conv_3, 3, 5, (2, 2), padding='SAME', activation=tf.nn.tanh,
+    t_conv_4 = tf.layers.conv2d_transpose(t_conv_3, 64, 5, (2, 2), padding='SAME',
                                           bias_initializer=biases_initializer, kernel_initializer=weights_initializer)
-    return t_conv_4
+    t_conv_4 = tf.nn.relu(tf.layers.batch_normalization(t_conv_4, momentum=0.9, epsilon=1e-5))
+
+    t_conv_5 = tf.layers.conv2d_transpose(t_conv_4, 3, 5, (2, 2), padding='SAME', activation=tf.nn.tanh,
+                                          bias_initializer=biases_initializer, kernel_initializer=weights_initializer)
+    return t_conv_5
 
 
 def net_discriminator(input_tensor, output_dim=1):
@@ -45,8 +49,11 @@ def net_discriminator(input_tensor, output_dim=1):
                                     output_dim=starting_out_dim * 4)
     conv_3 = leaky_relu(bn(conv_3))
     conv_4 = layers.conv_relu_layer('conv_4', conv_3, kernel_size=kernel_size, stride=stride,
-                                    output_dim=starting_out_dim * 8)
+                                    output_dim=starting_out_dim * 6)
     conv_4 = leaky_relu(bn(conv_4))
+    conv_5 = layers.conv_relu_layer('conv_5', conv_4, kernel_size=kernel_size, stride=stride,
+                                    output_dim=starting_out_dim * 8)
+    conv_5 = leaky_relu(bn(conv_5))
     fc_d = layers.fc_layer('fc_d', conv_4, output_dim=output_dim)
     return fc_d
 

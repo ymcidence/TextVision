@@ -59,7 +59,7 @@ def transformer(U, theta, out_size, name='STN', **kwargs):
             x = tf.matmul(tf.reshape(x, (-1, 1)), rep)
             return tf.reshape(x, [-1])
 
-    def _interpolate(im, x, y, out_size):
+    def _interpolate(im, x, y, _out_size):
         with tf.variable_scope('_interpolate'):
             # constants
             num_batch = tf.shape(im)[0]
@@ -71,15 +71,15 @@ def transformer(U, theta, out_size, name='STN', **kwargs):
             y = tf.cast(y, 'float32')
             height_f = tf.cast(height, 'float32')
             width_f = tf.cast(width, 'float32')
-            out_height = out_size[0]
-            out_width = out_size[1]
+            out_height = _out_size[0]
+            out_width = _out_size[1]
             zero = tf.zeros([], dtype='int32')
             max_y = tf.cast(tf.shape(im)[1] - 1, 'int32')
             max_x = tf.cast(tf.shape(im)[2] - 1, 'int32')
 
             # scale indices from [-1, 1] to [0, width/height]
-            x = (x + 1.0) * (width_f) / 2.0
-            y = (y + 1.0) * (height_f) / 2.0
+            x = (x + 1.0) * width_f / 2.0
+            y = (y + 1.0) * height_f / 2.0
 
             # do sampling
             x0 = tf.cast(tf.floor(x), 'int32')
@@ -119,8 +119,8 @@ def transformer(U, theta, out_size, name='STN', **kwargs):
             wb = tf.expand_dims(((x1_f - x) * (y - y0_f)), 1)
             wc = tf.expand_dims(((x - x0_f) * (y1_f - y)), 1)
             wd = tf.expand_dims(((x - x0_f) * (y - y0_f)), 1)
-            output = tf.add_n([wa * Ia, wb * Ib, wc * Ic, wd * Id])
-            return output
+            _output = tf.add_n([wa * Ia, wb * Ib, wc * Ic, wd * Id])
+            return _output
 
     def _meshgrid(height, width):
         with tf.variable_scope('_meshgrid'):
@@ -141,20 +141,20 @@ def transformer(U, theta, out_size, name='STN', **kwargs):
             grid = tf.concat(axis=0, values=[x_t_flat, y_t_flat, ones])
             return grid
 
-    def _transform(theta, input_dim, out_size):
+    def _transform(_theta, input_dim, _out_size):
         with tf.variable_scope('_transform'):
             num_batch = tf.shape(input_dim)[0]
             height = tf.shape(input_dim)[1]
             width = tf.shape(input_dim)[2]
             num_channels = tf.shape(input_dim)[3]
-            theta = tf.reshape(theta, (-1, 2, 3))
-            theta = tf.cast(theta, 'float32')
+            _theta = tf.reshape(_theta, (-1, 2, 3))
+            _theta = tf.cast(_theta, 'float32')
 
             # grid of (x_t, y_t, 1), eq (1) in ref [1]
             height_f = tf.cast(height, 'float32')
             width_f = tf.cast(width, 'float32')
-            out_height = out_size[0]
-            out_width = out_size[1]
+            out_height = _out_size[0]
+            out_width = _out_size[1]
             grid = _meshgrid(out_height, out_width)
             grid = tf.expand_dims(grid, 0)
             grid = tf.reshape(grid, [-1])
@@ -162,7 +162,7 @@ def transformer(U, theta, out_size, name='STN', **kwargs):
             grid = tf.reshape(grid, tf.stack([num_batch, 3, -1]))
 
             # Transform A x (x_t, y_t, 1)^T -> (x_s, y_s)
-            T_g = tf.matmul(theta, grid)
+            T_g = tf.matmul(_theta, grid)
             x_s = tf.slice(T_g, [0, 0, 0], [-1, 1, -1])
             y_s = tf.slice(T_g, [0, 1, 0], [-1, 1, -1])
             x_s_flat = tf.reshape(x_s, [-1])
@@ -170,11 +170,11 @@ def transformer(U, theta, out_size, name='STN', **kwargs):
 
             input_transformed = _interpolate(
                 input_dim, x_s_flat, y_s_flat,
-                out_size)
+                _out_size)
 
-            output = tf.reshape(
+            _output = tf.reshape(
                 input_transformed, tf.stack([num_batch, out_height, out_width, num_channels]))
-            return output
+            return _output
 
     with tf.variable_scope(name):
         output = _transform(theta, U, out_size)
