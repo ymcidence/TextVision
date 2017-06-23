@@ -81,7 +81,7 @@ def net_fused_discriminator(input_image, input_text, output_dim=1):
     conv_4 = leaky_relu(bn(conv_4))
 
     conv_5 = layers.conv_relu_layer('conv_5', conv_4, kernel_size=3, stride=stride,
-                                    output_dim=starting_out_dim * 6)
+                                    output_dim=starting_out_dim * 8)
     conv_5 = leaky_relu(bn(conv_5))
 
     shape_5 = conv_5.shape
@@ -90,11 +90,11 @@ def net_fused_discriminator(input_image, input_text, output_dim=1):
     w_5 = shape_5[2].value
     txt_rep_length = input_text.shape[1].value
     expend_text = tf.reshape(input_text, [batch_size, 1, 1, txt_rep_length])
-    tiled_text = tf.tile(expend_text, [1, h_5, w_5, txt_rep_length])
+    tiled_text = tf.tile(expend_text, [1, h_5, w_5, 1])
 
     conv_6_in = tf.concat([conv_5, tiled_text], axis=3)
     conv_6 = layers.conv_relu_layer('conv_6', conv_6_in, kernel_size=1, stride=1,
-                                    output_dim=starting_out_dim * 4)
+                                    output_dim=starting_out_dim * 8)
     conv_6 = leaky_relu(bn(conv_6))
 
     fc_d = layers.fc_layer('fc_d', conv_6, output_dim=output_dim)

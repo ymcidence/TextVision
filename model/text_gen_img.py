@@ -54,7 +54,6 @@ class TextGenImage(an.AbstractNet):
                 feat_rel, att_rel = text_attention('att_2', lstm_sentence, words)
                 feat_obj, att_obj = text_attention('att_3', lstm_sentence, words)
                 image_net_in = tf.concat([self.sampled_variables, feat_sbj, feat_rel, feat_obj], axis=1)
-                # image_net_in = self.sampled_variables
         # generator
         with tf.variable_scope(an.NAME_SCOPE_GENERATIVE_NET):
             fake_image = (nets.net_generator(image_net_in) + 1) / 2.
@@ -94,12 +93,11 @@ class TextGenImage(an.AbstractNet):
             tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.zeros_like(self.nets[1]), logits=self.nets[1]))
         loss_dis_real = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.ones_like(self.nets[2]), logits=self.nets[2]))
-        # loss_att_sbj = tf.reduce_mean(tf.nn.l2_loss(self.subj_sup - self.nets[3]))
-        # loss_att_rel = tf.reduce_mean(tf.nn.l2_loss(self.rel_sup - self.nets[4]))
-        # loss_att_obj = tf.reduce_mean(tf.nn.l2_loss(self.obj_sup - self.nets[5]))
+
         loss_att_sbj = tf.losses.sigmoid_cross_entropy(self.subj_sup, self.nets[3])
         loss_att_rel = tf.losses.sigmoid_cross_entropy(self.rel_sup, self.nets[4])
         loss_att_obj = tf.losses.sigmoid_cross_entropy(self.obj_sup, self.nets[5])
+
         loss_att = 0.1 * (loss_att_sbj + loss_att_rel + loss_att_obj)
         loss_dis = loss_dis_fake + loss_dis_real + loss_att
 
