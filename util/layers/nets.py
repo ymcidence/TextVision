@@ -6,9 +6,9 @@ from util.layers import conventional_layers as layers
 def net_generator(input_tensor):
     weights_initializer = tf.random_normal_initializer(stddev=0.02)
     biases_initializer = tf.constant_initializer(0.)
-    fc_1 = layers.fc_layer('fc_0', input_tensor, 2 * 4 * 256, weights_initializer=weights_initializer,
+    fc_1 = layers.fc_layer('fc_0', input_tensor, 4 * 2 * 256, weights_initializer=weights_initializer,
                            biases_initializer=biases_initializer)
-    fc_1 = tf.reshape(fc_1, [-1, 2, 4, 256])
+    fc_1 = tf.reshape(fc_1, [-1, 4, 2, 256])
     fc_1 = tf.nn.relu(tf.layers.batch_normalization(fc_1, momentum=0.9, epsilon=1e-5))
 
     t_conv_1 = tf.layers.conv2d_transpose(fc_1, 512, 5, (2, 2), padding='SAME',
@@ -53,7 +53,6 @@ def net_discriminator(input_tensor, output_dim=1):
     conv_4 = leaky_relu(bn(conv_4))
     conv_5 = layers.conv_relu_layer('conv_5', conv_4, kernel_size=kernel_size, stride=stride,
                                     output_dim=starting_out_dim * 8)
-    conv_5 = leaky_relu(bn(conv_5))
     fc_d = layers.fc_layer('fc_d', conv_4, output_dim=output_dim)
     return fc_d
 
@@ -78,14 +77,25 @@ def net_fused_discriminator(input_image, input_text, output_dim=1):
                                     output_dim=starting_out_dim * 4)
     conv_3 = leaky_relu(bn(conv_3))
     conv_4 = layers.conv_relu_layer('conv_4', conv_3, kernel_size=kernel_size, stride=stride,
-                                    output_dim=starting_out_dim * 8)
+                                    output_dim=starting_out_dim * 6)
     conv_4 = leaky_relu(bn(conv_4))
 
-    shape = conv_4.get_shape().as_list()
-    input_dim = 1
-    for d in shape[1:]:
-        input_dim *= d
-    flat_conv_4 = tf.reshape(conv_4, [-1, input_dim])
-    fc_in = tf.concat([flat_conv_4, bn(input_text)], axis=1)
-    fc_d = layers.fc_layer('fc_d', fc_in, output_dim=output_dim)
+    conv_5 = layers.conv_relu_layer('conv_5', conv_4, kernel_size=3, stride=stride,
+                                    output_dim=starting_out_dim * 6)
+    conv_5 = leaky_relu(bn(conv_5))
+
+    shape_5 = conv_5.shape
+    batch_size = shape_5[0].value
+    h_5 = shape_5[1].value
+    w_5 = shape_5[2].value
+    txt_rep_length = input_text.shape[1].value
+    expend_text = tf.reshape(input_text, [batch_size, 1, 1, txt_rep_length])
+    tiled_text = tf.tile(expend_text, [1, h_5, w_5, txt_rep_length])
+
+    conv_6_in = tf.concat([conv_5, tiled_text], axis=3)
+    conv_6 = layers.conv_relu_layer('conv_6', conv_6_in, kernel_size=1, stride=1,
+                                    output_dim=starting_out_dim * 4)
+    conv_6 = leaky_relu(bn(conv_6))
+
+    fc_d = layers.fc_layer('fc_d', conv_6, output_dim=output_dim)
     return fc_d

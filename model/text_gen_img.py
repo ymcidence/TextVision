@@ -6,10 +6,10 @@ import tensorflow as tf
 from six.moves import xrange
 
 import model.abc_net as an
-from util.layers import attention
 from util.layers import conventional_layers as layers
 from util.layers import lstm_layer as lstm
 from util.layers import nets
+from util.layers.attention import sequential_attention_real as text_attention
 
 NAME_SCOPE_ATTENTION = 'attention_net'
 SUB_SCOPE_TEXT = 'text'
@@ -31,10 +31,10 @@ class TextGenImage(an.AbstractNet):
         if kwargs.get('emb_lstm') is not None:
             self.emb_lstm = kwargs.get('emb_lstm')
         else:
-            self.emb_lstm = 300
+            self.emb_lstm = 500
         self.fused_discriminator = True
-        self.sampled_variables = tf.placeholder(tf.float32, [self.batch_size, 50])
-        self.batch_image = tf.placeholder(tf.float32, [self.batch_size, 64, 128, 3])
+        self.sampled_variables = tf.placeholder(tf.float32, [self.batch_size, 450])
+        self.batch_image = tf.placeholder(tf.float32, [self.batch_size, 128, 64, 3])
         self.batch_sentence = tf.placeholder(tf.int32, [self.batch_size, self.seq_length])  # [N,T]
         self.subj_sup = tf.placeholder(tf.float32, [self.batch_size, self.seq_length])
         self.obj_sup = tf.placeholder(tf.float32, [self.batch_size, self.seq_length])
@@ -45,19 +45,22 @@ class TextGenImage(an.AbstractNet):
     def _build_net(self):
         # text attention
         with tf.variable_scope(NAME_SCOPE_ATTENTION):
-            emb_sentence = layers.emb_layer('word_emb', tf.transpose(self.batch_sentence), self.dict_size, self.emb_size)
+            words = tf.transpose(self.batch_sentence)
+            emb_sentence = layers.emb_layer('word_emb', words, self.dict_size,
+                                            self.emb_size)
             with tf.variable_scope(SUB_SCOPE_TEXT):
                 lstm_sentence = lstm.lstm_layer('lstm', emb_sentence, out_length=self.emb_lstm, num_layers=2)
-                feat_sbj, att_sbj = attention.sequential_attention('att_1', lstm_sentence, self.emb_size / 2)
-                feat_rel, att_rel = attention.sequential_attention('att_2', lstm_sentence, self.emb_size / 2)
-                feat_obj, att_obj = attention.sequential_attention('att_3', lstm_sentence, self.emb_size / 2)
+                feat_sbj, att_sbj = text_attention('att_1', lstm_sentence, words)
+                feat_rel, att_rel = text_attention('att_2', lstm_sentence, words)
+                feat_obj, att_obj = text_attention('att_3', lstm_sentence, words)
                 image_net_in = tf.concat([self.sampled_variables, feat_sbj, feat_rel, feat_obj], axis=1)
+                # image_net_in = self.sampled_variables
         # generator
         with tf.variable_scope(an.NAME_SCOPE_GENERATIVE_NET):
             fake_image = (nets.net_generator(image_net_in) + 1) / 2.
         # discriminator
+        feat_sentence = tf.concat([feat_sbj, feat_rel, feat_obj], axis=1)
         if self.fused_discriminator:
-            feat_sentence = tf.concat([feat_sbj, feat_rel, feat_obj], axis=1)
             with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET):
                 fake_decision = nets.net_fused_discriminator(fake_image, feat_sentence)
             with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET, reuse=True):
@@ -68,12 +71,20 @@ class TextGenImage(an.AbstractNet):
             with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET, reuse=True):
                 real_decision = nets.net_discriminator(self.batch_image)
 
+        rels = tf.matmul(feat_sentence, feat_sentence, transpose_b=True)
+        rels = tf.expand_dims(rels, 0)
+        rels = tf.expand_dims(rels, -1)
         tf.summary.image(an.NAME_SCOPE_GENERATIVE_NET + '/gen_im', fake_image)
         tf.summary.image(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/real_im', self.batch_image)
+        tf.summary.image(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/rels', rels)
         tf.summary.histogram(an.NAME_SCOPE_GENERATIVE_NET + '/gen_dec_hist', fake_decision)
         tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/dis_dec_hist', real_decision)
         tf.summary.histogram(an.NAME_SCOPE_GENERATIVE_NET + '/gen_im_hist', fake_image)
         tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/real_im_hist', self.batch_image)
+        tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/rep_sbj', feat_sbj)
+        tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/rep_obj', feat_obj)
+        tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/att_sbj', tf.argmax(att_sbj, axis=1))
+        tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/att_obj', tf.argmax(att_obj, axis=1))
         return fake_image, fake_decision, real_decision, att_sbj, att_rel, att_obj
 
     def _build_loss(self):
@@ -83,9 +94,12 @@ class TextGenImage(an.AbstractNet):
             tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.zeros_like(self.nets[1]), logits=self.nets[1]))
         loss_dis_real = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.ones_like(self.nets[2]), logits=self.nets[2]))
-        loss_att_sbj = tf.reduce_mean(tf.nn.l2_loss(self.subj_sup - self.nets[3]))
-        loss_att_rel = tf.reduce_mean(tf.nn.l2_loss(self.rel_sup - self.nets[4]))
-        loss_att_obj = tf.reduce_mean(tf.nn.l2_loss(self.obj_sup - self.nets[3]))
+        # loss_att_sbj = tf.reduce_mean(tf.nn.l2_loss(self.subj_sup - self.nets[3]))
+        # loss_att_rel = tf.reduce_mean(tf.nn.l2_loss(self.rel_sup - self.nets[4]))
+        # loss_att_obj = tf.reduce_mean(tf.nn.l2_loss(self.obj_sup - self.nets[5]))
+        loss_att_sbj = tf.losses.sigmoid_cross_entropy(self.subj_sup, self.nets[3])
+        loss_att_rel = tf.losses.sigmoid_cross_entropy(self.rel_sup, self.nets[4])
+        loss_att_obj = tf.losses.sigmoid_cross_entropy(self.obj_sup, self.nets[5])
         loss_att = 0.1 * (loss_att_sbj + loss_att_rel + loss_att_obj)
         loss_dis = loss_dis_fake + loss_dis_real + loss_att
 
@@ -102,7 +116,7 @@ class TextGenImage(an.AbstractNet):
         train_list_dis = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_DISCRIMINATIVE_NET)
         train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                                scope=NAME_SCOPE_ATTENTION + '/' + SUB_SCOPE_TEXT)
-        train_list_gen = train_list_gen + train_list_att_txt
+        train_list_gen = train_list_gen  # + train_list_att_txt
         train_list_dis = train_list_dis + train_list_att_txt
         op_gen = trainer1.minimize(self.loss[0], var_list=train_list_gen, global_step=self.g_step)
         op_dis = trainer2.minimize(self.loss[1], var_list=train_list_dis, global_step=self.g_step)
