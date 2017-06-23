@@ -86,11 +86,12 @@ class TextGenImage(an.AbstractNet):
         loss_att_sbj = tf.reduce_mean(tf.nn.l2_loss(self.subj_sup - self.nets[3]))
         loss_att_rel = tf.reduce_mean(tf.nn.l2_loss(self.rel_sup - self.nets[4]))
         loss_att_obj = tf.reduce_mean(tf.nn.l2_loss(self.obj_sup - self.nets[3]))
-
-        loss_dis = loss_dis_fake + loss_dis_real + 0.1 * (loss_att_sbj + loss_att_rel + loss_att_obj)
+        loss_att = 0.1 * (loss_att_sbj + loss_att_rel + loss_att_obj)
+        loss_dis = loss_dis_fake + loss_dis_real + loss_att
 
         tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/loss', loss_gen)
         tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss', loss_dis)
+        tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss_att', loss_att)
 
         return loss_gen, loss_dis
 
