@@ -49,14 +49,15 @@ def sequential_attention_real(name, tensor_in, tensor_desc, out_length=150):
         feature_length = input_size[2].value
 
         squeezed_data = tf.reshape(tensor_in, [batch_size * sequence_length, feature_length])
-        fc_1 = tf.nn.tanh(fc_layer('fc_1', squeezed_data, output_dim=out_length))
-        fc_2 = fc_layer('fc_2', fc_1, output_dim=1)
-        scores = tf.reshape(fc_2, [sequence_length, batch_size, 1])
+        fc_1 = tf.nn.tanh(fc_layer('fc_1', squeezed_data, output_dim=1))
+        # fc_2 = fc_layer('fc_2', fc_1, output_dim=1)
+        scores = tf.reshape(fc_1, [sequence_length, batch_size, 1])
         is_not_pad = tf.cast(tf.not_equal(tensor_desc, 0)[..., tf.newaxis], tf.float32)
         prob = tf.nn.softmax(scores, dim=0) * is_not_pad
         attentions = prob / tf.reduce_sum(prob, 0, keep_dims=True)
 
-        text_feat = tf.reduce_sum(attentions * tf.reshape(fc_1, [sequence_length, batch_size, out_length]), 0)
+        # text_feat = tf.reduce_sum(attentions * tf.reshape(fc_1, [sequence_length, batch_size, out_length]), 0)
+        text_feat = tf.reduce_sum(attentions * tensor_in, 0)
 
         return text_feat, tf.transpose(tf.squeeze(attentions, axis=2), perm=[1, 0])
 

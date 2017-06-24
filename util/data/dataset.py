@@ -43,7 +43,7 @@ class SimpleDataset(object):
         return this_batch
 
     def _shuffle(self):
-        inds = np.random.choice(self.set_size, self.batch_num * self.batch_size)
+        inds = np.random.choice(self.set_size, self.set_size)
         new_meta = dict(
             id=self.meta['id'][inds],
             name=self.meta['name'][inds],

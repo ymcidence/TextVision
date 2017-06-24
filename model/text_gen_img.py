@@ -31,7 +31,7 @@ class TextGenImage(an.AbstractNet):
         if kwargs.get('emb_lstm') is not None:
             self.emb_lstm = kwargs.get('emb_lstm')
         else:
-            self.emb_lstm = 500
+            self.emb_lstm = 200
         self.fused_discriminator = True
         self.sampled_variables = tf.placeholder(tf.float32, [self.batch_size, 450])
         self.batch_image = tf.placeholder(tf.float32, [self.batch_size, 128, 64, 3])
@@ -43,6 +43,9 @@ class TextGenImage(an.AbstractNet):
         self.loss = self._build_loss()
 
     def _build_net(self):
+        def bn(_in_tensor):
+            return tf.layers.batch_normalization(_in_tensor, momentum=0.9, epsilon=1e-5)
+
         # text attention
         with tf.variable_scope(NAME_SCOPE_ATTENTION):
             words = tf.transpose(self.batch_sentence)
@@ -53,12 +56,13 @@ class TextGenImage(an.AbstractNet):
                 feat_sbj, att_sbj = text_attention('att_1', lstm_sentence, words)
                 feat_rel, att_rel = text_attention('att_2', lstm_sentence, words)
                 feat_obj, att_obj = text_attention('att_3', lstm_sentence, words)
-                image_net_in = tf.concat([self.sampled_variables, feat_sbj, feat_rel, feat_obj], axis=1)
+                feat_sentence = tf.concat([bn(feat_sbj), bn(feat_rel), bn(feat_obj)], axis=1)
+                image_net_in = tf.concat([self.sampled_variables, feat_sentence], axis=1)
         # generator
         with tf.variable_scope(an.NAME_SCOPE_GENERATIVE_NET):
             fake_image = (nets.net_generator(image_net_in) + 1) / 2.
         # discriminator
-        feat_sentence = tf.concat([feat_sbj, feat_rel, feat_obj], axis=1)
+
         if self.fused_discriminator:
             with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET):
                 fake_decision = nets.net_fused_discriminator(fake_image, feat_sentence)
@@ -94,11 +98,15 @@ class TextGenImage(an.AbstractNet):
         loss_dis_real = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.ones_like(self.nets[2]), logits=self.nets[2]))
 
-        loss_att_sbj = tf.losses.sigmoid_cross_entropy(self.subj_sup, self.nets[3])
-        loss_att_rel = tf.losses.sigmoid_cross_entropy(self.rel_sup, self.nets[4])
-        loss_att_obj = tf.losses.sigmoid_cross_entropy(self.obj_sup, self.nets[5])
+        # loss_att_sbj = tf.losses.sigmoid_cross_entropy(self.subj_sup, self.nets[3])
+        # loss_att_rel = tf.losses.sigmoid_cross_entropy(self.rel_sup, self.nets[4])
+        # loss_att_obj = tf.losses.sigmoid_cross_entropy(self.obj_sup, self.nets[5])
 
-        loss_att = 0.1 * (loss_att_sbj + loss_att_rel + loss_att_obj)
+        loss_att_sbj = tf.nn.l2_loss(self.subj_sup- self.nets[3])
+        loss_att_rel = tf.nn.l2_loss(self.rel_sup - self.nets[4])
+        loss_att_obj = tf.nn.l2_loss(self.obj_sup- self.nets[5])
+
+        loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj)
         loss_dis = loss_dis_fake + loss_dis_real + loss_att
 
         tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/loss', loss_gen)
@@ -114,7 +122,7 @@ class TextGenImage(an.AbstractNet):
         train_list_dis = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_DISCRIMINATIVE_NET)
         train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                                scope=NAME_SCOPE_ATTENTION + '/' + SUB_SCOPE_TEXT)
-        train_list_gen = train_list_gen  # + train_list_att_txt
+        train_list_gen = train_list_gen + train_list_att_txt
         train_list_dis = train_list_dis + train_list_att_txt
         op_gen = trainer1.minimize(self.loss[0], var_list=train_list_gen, global_step=self.g_step)
         op_dis = trainer2.minimize(self.loss[1], var_list=train_list_dis, global_step=self.g_step)
@@ -135,7 +143,7 @@ class TextGenImage(an.AbstractNet):
         initial_op = tf.global_variables_initializer()
         self.sess.run(initial_op)
         summary_path = os.path.join(self.log_path, 'log', time_string) + os.sep
-        save_path = os.path.join(self.log_path, 'model') + os.sep
+        save_path = os.path.join(self.log_path, 'model', time_string) + os.sep
 
         if not os.path.exists(self.log_path):
             os.mkdir(self.log_path)

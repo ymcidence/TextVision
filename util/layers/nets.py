@@ -6,9 +6,9 @@ from util.layers import conventional_layers as layers
 def net_generator(input_tensor):
     weights_initializer = tf.random_normal_initializer(stddev=0.02)
     biases_initializer = tf.constant_initializer(0.)
-    fc_1 = layers.fc_layer('fc_0', input_tensor, 4 * 2 * 256, weights_initializer=weights_initializer,
+    fc_1 = layers.fc_layer('fc_0', input_tensor, 4 * 2 * 384, weights_initializer=weights_initializer,
                            biases_initializer=biases_initializer)
-    fc_1 = tf.reshape(fc_1, [-1, 4, 2, 256])
+    fc_1 = tf.reshape(fc_1, [-1, 4, 2, 384])
     fc_1 = tf.nn.relu(tf.layers.batch_normalization(fc_1, momentum=0.9, epsilon=1e-5))
 
     t_conv_1 = tf.layers.conv2d_transpose(fc_1, 512, 5, (2, 2), padding='SAME',

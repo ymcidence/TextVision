@@ -9,7 +9,7 @@ def run():
     sess = tf.Session(config=sess_config)
     settings = dict(
         model='t2i',
-        batch_size=32,
+        batch_size=64,
         sess=sess,
         log_path='/home/ymcidence/WorkSpace/Loggings/t2i/',
         seq_length=10,
@@ -21,7 +21,7 @@ def run():
     )
     model = NetFactory.get_net(**settings)
     data = dataset.SimpleDataset(**settings)
-    model.train(6006, data)
+    model.train(10000, data)
 
 
 if __name__ == '__main__':

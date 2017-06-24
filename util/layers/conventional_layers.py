@@ -109,7 +109,7 @@ def fc_relu_layer(name, bottom, output_dim, bias_term=True,
     return relu
 
 
-def emb_layer(name, word_in, dict_size, emb_size, trainable=False):
+def emb_layer(name, word_in, dict_size, emb_size, trainable=True):
     """
     :param name: name
     :param word_in: [N,T]
@@ -118,7 +118,7 @@ def emb_layer(name, word_in, dict_size, emb_size, trainable=False):
     :param trainable:
     :return:
     """
-    with tf.variable_scope(name), tf.device('/cpu:0'):
+    with tf.variable_scope(name):  # , tf.device('/cpu:0'):
         emb_kernel = tf.get_variable('emb_kernel', shape=[dict_size, emb_size], dtype=tf.float32,
                                      initializer=tf.random_uniform_initializer(-0.1, 0.1), trainable=trainable)
         emb = tf.nn.embedding_lookup(emb_kernel, word_in)
