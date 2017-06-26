@@ -14,10 +14,10 @@ def run():
         log_path='/home/ymcidence/WorkSpace/Loggings/t2i/',
         seq_length=10,
         dict_size=72704,
-        emb_file='./util/data/embed_matrix.npy',
-        set_size=58016,
+        emb_file='../util/data/embed_matrix.npy',
+        set_size=64,  # 58016,
         data_path='/home/ymcidence/WorkSpace/Data/VisualGenome/CropMan/',
-        meta_file='./util/data/visg_man_10.npy'
+        meta_file='../util/data/visg_man_10.npy'
     )
     model = NetFactory.get_net(**settings)
     data = dataset.SimpleDataset(**settings)

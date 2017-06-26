@@ -18,7 +18,7 @@ class SimpleDataset(object):
         self.data_path = kwargs.get('data_path')
         self.meta_file = kwargs.get('meta_file')
         self.meta = np.load(self.meta_file)[()]
-        self.batch_num = len(self.meta['id']) // self.batch_size
+        self.batch_num = self.set_size // self.batch_size
         self.batch_count = 0
 
     def next_batch(self):
@@ -33,7 +33,7 @@ class SimpleDataset(object):
         batch_obj_sup = self.meta.get('obj_sup')[batch_start:batch_end, ...]
         batch_rel_sup = self.meta.get('rel_sup')[batch_start:batch_end, ...]
         this_batch = dict(batch_image=np.asarray(batch_image, dtype=np.float32) / 255.,
-                          batch_desc =batch_desc,
+                          batch_desc=batch_desc,
                           batch_text=batch_text,
                           batch_obj_sup=batch_obj_sup,
                           batch_rel_sup=batch_rel_sup,
@@ -44,6 +44,19 @@ class SimpleDataset(object):
 
     def _shuffle(self):
         inds = np.random.choice(self.set_size, self.set_size)
+        new_meta = dict(
+            id=self.meta['id'][inds],
+            name=self.meta['name'][inds],
+            desc=self.meta['desc'][inds],
+            p_desc=self.meta['p_desc'][inds, ...],
+            subj_sup=self.meta['subj_sup'][inds, ...],
+            obj_sup=self.meta['obj_sup'][inds, ...],
+            rel_sup=self.meta['rel_sup'][inds, ...]
+        )
+        self.meta = new_meta
+
+    def _sample(self):
+        inds = np.random.choice(58016, self.batch_size)
         new_meta = dict(
             id=self.meta['id'][inds],
             name=self.meta['name'][inds],

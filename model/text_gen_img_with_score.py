@@ -1,11 +1,11 @@
 import gc
 import os
 
-import numpy as np
 import tensorflow as tf
 from six.moves import xrange
 
 import model.abc_net as an
+from model.text_gen_img import TextGenImage
 from util.layers import conventional_layers as layers
 from util.layers import lstm_layer as lstm
 from util.layers import nets
@@ -16,36 +16,15 @@ SUB_SCOPE_TEXT = 'text'
 SUB_SCOPE_JOINT = 'joint'
 
 
-class TextGenImage(an.AbstractNet):
+def bn(_in_tensor):
+    return tf.layers.batch_normalization(_in_tensor, momentum=0.9, epsilon=1e-5)
+
+class ScoredTextGenImage(TextGenImage):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.batch_size = kwargs.get('batch_size')
-        self.log_path = kwargs.get('log_path')
-        self.seq_length = kwargs.get('seq_length')
-        self.dict_size = kwargs.get('dict_size')
-        self.emb_file = kwargs.get('emb_file')
-        if kwargs.get('emb_size') is not None:
-            self.emb_size = kwargs.get('emb_size')
-        else:
-            self.emb_size = 300
-        if kwargs.get('emb_lstm') is not None:
-            self.emb_lstm = kwargs.get('emb_lstm')
-        else:
-            self.emb_lstm = 200
-        self.fused_discriminator = True
-        self.sampled_variables = tf.random_uniform([self.batch_size, 200], minval=-1, maxval=1)
-        self.batch_image = tf.placeholder(tf.float32, [self.batch_size, 128, 64, 3])
-        self.batch_sentence = tf.placeholder(tf.int32, [self.batch_size, self.seq_length])  # [N,T]
-        self.subj_sup = tf.placeholder(tf.float32, [self.batch_size, self.seq_length])
-        self.obj_sup = tf.placeholder(tf.float32, [self.batch_size, self.seq_length])
-        self.rel_sup = tf.placeholder(tf.float32, [self.batch_size, self.seq_length])
-        self.nets = self._build_net()
-        self.loss = self._build_loss()
+        self.gradient_clip = kwargs.get('gradient_clip')
 
     def _build_net(self):
-        def bn(_in_tensor):
-            return tf.layers.batch_normalization(_in_tensor, momentum=0.9, epsilon=1e-5)
-
         # text attention
         with tf.variable_scope(NAME_SCOPE_ATTENTION):
             words = tf.transpose(self.batch_sentence)
@@ -56,24 +35,18 @@ class TextGenImage(an.AbstractNet):
                 feat_sbj, att_sbj = text_attention('att_1', lstm_sentence, words)
                 feat_rel, att_rel = text_attention('att_2', lstm_sentence, words)
                 feat_obj, att_obj = text_attention('att_3', lstm_sentence, words)
-                feat_sentence = tf.concat([feat_sbj, feat_rel, feat_obj], axis=1)
-                # image_net_in = tf.concat([self.sampled_variables, feat_sentence], axis=1)
-                image_net_in = feat_sentence
+                feat_sentence = tf.concat([bn(feat_sbj), bn(feat_rel), bn(feat_obj)], axis=1)
+                image_net_in = tf.concat([self.sampled_variables, feat_sentence], axis=1)
         # generator
         with tf.variable_scope(an.NAME_SCOPE_GENERATIVE_NET):
             fake_image = nets.net_generator(image_net_in)
         # discriminator
-
-        if self.fused_discriminator:
-            with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET):
-                fake_decision = nets.net_fused_discriminator(fake_image, feat_sentence)
-            with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET, reuse=True):
-                real_decision = nets.net_fused_discriminator(self.batch_image, feat_sentence)
-        else:
-            with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET):
-                fake_decision = nets.net_discriminator(fake_image)
-            with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET, reuse=True):
-                real_decision = nets.net_discriminator(self.batch_image)
+        with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET):
+            fake_decision, fake_rep = nets.net_scored_discriminator(fake_image, output_dim=3 * self.emb_lstm)
+            fake_score = tf.multiply(fake_rep, feat_sentence)
+        with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET, reuse=True):
+            real_decision, real_rep = nets.net_scored_discriminator(self.batch_image, output_dim=3 * self.emb_lstm)
+            real_score = tf.multiply(real_rep, feat_sentence)
 
         rels = tf.matmul(feat_sentence, feat_sentence, transpose_b=True)
         rels = tf.expand_dims(rels, 0)
@@ -89,7 +62,7 @@ class TextGenImage(an.AbstractNet):
         tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/rep_obj', feat_obj)
         tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/att_sbj', tf.argmax(att_sbj, axis=1))
         tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/att_obj', tf.argmax(att_obj, axis=1))
-        return fake_image, fake_decision, real_decision, att_sbj, att_rel, att_obj
+        return fake_image, fake_decision, real_decision, att_sbj, att_rel, att_obj, fake_score, real_score
 
     def _build_loss(self):
         loss_gen = tf.reduce_mean(
@@ -99,20 +72,17 @@ class TextGenImage(an.AbstractNet):
         loss_dis_real = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.ones_like(self.nets[2]), logits=self.nets[2]))
 
-        # loss_att_sbj = tf.losses.sigmoid_cross_entropy(self.subj_sup, self.nets[3])
-        # loss_att_rel = tf.losses.sigmoid_cross_entropy(self.rel_sup, self.nets[4])
-        # loss_att_obj = tf.losses.sigmoid_cross_entropy(self.obj_sup, self.nets[5])
+        loss_gen_score = -1 * tf.reduce_mean(self.nets[6])
+        loss_dis_score_fake = tf.reduce_mean(self.nets[6])
+        loss_dis_score_real = -1 * tf.reduce_mean(self.nets[7])
 
         loss_att_sbj = tf.nn.l2_loss(self.subj_sup - self.nets[3])
         loss_att_rel = tf.nn.l2_loss(self.rel_sup - self.nets[4])
         loss_att_obj = tf.nn.l2_loss(self.obj_sup - self.nets[5])
-
         loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj)
-        loss_dis = loss_dis_fake + loss_dis_real + loss_att
 
-        # loss_hehe = tf.nn.l2_loss(self.nets[-1])
-        # loss_gen = loss_gen + loss_hehe
-        # tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/loss', loss_hehe)
+        loss_gen = loss_gen + loss_gen_score
+        loss_dis = loss_dis_fake + loss_dis_real + loss_att + loss_dis_score_fake + loss_dis_score_real
 
         tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/hehe', loss_gen)
         tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss', loss_dis)
@@ -121,8 +91,8 @@ class TextGenImage(an.AbstractNet):
         return loss_gen, loss_dis
 
     def _build_opt(self):
-        trainer1 = tf.train.AdamOptimizer(0.0002, beta1=0.5)
-        trainer2 = tf.train.AdamOptimizer(0.0002, beta1=0.5)
+        trainer1 = tf.train.RMSPropOptimizer(0.00005)
+        trainer2 = tf.train.RMSPropOptimizer(0.00005)
         train_list_gen = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_GENERATIVE_NET)
         train_list_dis = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_DISCRIMINATIVE_NET)
         train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
@@ -133,14 +103,10 @@ class TextGenImage(an.AbstractNet):
         op_gen = trainer1.minimize(self.loss[0], var_list=train_list_gen, global_step=self.g_step)
         op_dis = trainer2.minimize(self.loss[1], var_list=train_list_dis, global_step=self.g_step)
 
-        return op_gen, op_dis
+        dis_clipping = [tf.assign(var, tf.clip_by_value(var, -1 * self.gradient_clip, self.gradient_clip)) for var in
+                        train_list_dis]
 
-    def _init_embeddings(self):
-        emb_matrix = np.load(self.emb_file)
-        with tf.variable_scope(NAME_SCOPE_ATTENTION, reuse=True):
-            emb_var = tf.get_variable('word_emb/emb_kernel', [self.dict_size, self.emb_size])
-            op_init_emb = tf.assign(emb_var, emb_matrix)
-        self.sess.run(op_init_emb)
+        return op_gen, op_dis, tf.tuple(dis_clipping)
 
     def train(self, max_iter, dataset, restore_file=None):
         from time import gmtime, strftime
@@ -176,11 +142,13 @@ class TextGenImage(an.AbstractNet):
                               self.rel_sup: this_batch['batch_rel_sup']}
 
             d_loss, _, dis_sum = self.sess.run([self.loss[1], ops[1], summary_dis], feed_dict=this_feed_dict)
+            self.sess.run(ops[2])
             writer.add_summary(dis_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 
-            if i % 5 == 0:
+            if i % 5 == 0 and i > 0:
                 g_loss, _, gen_sum = self.sess.run([self.loss[0], ops[0], summary_gen], feed_dict=this_feed_dict)
                 writer.add_summary(gen_sum, global_step=tf.train.global_step(self.sess, self.g_step))
+                print('hehe')
 
             step = tf.train.global_step(self.sess, self.g_step)
             print('Batch ' + str(i) + '(Global Step: ' + str(step) + '): ' + str(g_loss) + '; ' + str(d_loss))

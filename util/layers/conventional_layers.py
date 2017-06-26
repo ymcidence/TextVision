@@ -109,7 +109,7 @@ def fc_relu_layer(name, bottom, output_dim, bias_term=True,
     return relu
 
 
-def emb_layer(name, word_in, dict_size, emb_size, trainable=True):
+def emb_layer(name, word_in, dict_size, emb_size, trainable=False):
     """
     :param name: name
     :param word_in: [N,T]
