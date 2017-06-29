@@ -1,5 +1,6 @@
-import tensorflow as tf
 from abc import ABCMeta, abstractmethod
+
+import tensorflow as tf
 
 MODE_FLAG_TRAIN = 'train'
 MODE_FLAG_TEST = 'test'
@@ -13,24 +14,32 @@ class AbstractNet(metaclass=ABCMeta):
         self.g_step = tf.Variable(0, trainable=False, name='global_step')
 
     @abstractmethod
-    def _build_net(self): pass
+    def _build_net(self):
+        pass
 
     @abstractmethod
-    def _build_loss(self): pass
+    def _build_loss(self):
+        pass
 
     @abstractmethod
-    def _build_opt(self): pass
+    def _build_opt(self):
+        pass
 
-    def train(self, max_iter, dataset, restore_file=None): pass
+    def train(self, max_iter, dataset, restore_file=None):
+        pass
 
-    def _restore(self, restore_file):
-        save_list = tf.trainable_variables()
+    def _restore(self, restore_file, var_list=None):
+        if var_list is None:
+            save_list = tf.trainable_variables()
+        else:
+            save_list = var_list
         saver = tf.train.Saver(var_list=save_list)
         saver.restore(self.sess, save_path=restore_file)
 
-    def _save(self, save_path, step):
-        saver = tf.train.Saver()
+    def _save(self, save_path, step, var_list=None):
+        saver = tf.train.Saver(var_list)
         saver.save(self.sess, save_path + 'YMModel', step)
+        print('Saved!')
 
 
 class NetFactory(object):

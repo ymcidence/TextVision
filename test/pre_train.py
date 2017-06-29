@@ -8,22 +8,20 @@ def run():
     sess_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     sess = tf.Session(config=sess_config)
     settings = dict(
-        model='st2i',
+        model='t2i',
         batch_size=64,
         sess=sess,
-        log_path='/home/ymcidence/WorkSpace/Loggings/st2i/',
+        log_path='/home/ymcidence/WorkSpace/Loggings/t2i/',
         seq_length=10,
         dict_size=72704,
         emb_file='../util/data/embed_matrix.npy',
         set_size=58016,
         data_path='/home/ymcidence/WorkSpace/Data/VisualGenome/CropMan/',
-        meta_file='../util/data/visg_man_10.npy',
-        gradient_clip=0.5
+        meta_file='../util/data/visg_man_10.npy'
     )
     model = NetFactory.get_net(**settings)
     data = dataset.SimpleDataset(**settings)
-    restore = '/home/ymcidence/WorkSpace/Loggings/st2i/model/Wed28Jun2017-125207/YMModel-21335'
-    model.train(50000, data, restore_file=restore)
+    model.pre_train(1000, data)
 
 
 if __name__ == '__main__':

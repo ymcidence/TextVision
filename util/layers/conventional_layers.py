@@ -109,7 +109,7 @@ def fc_relu_layer(name, bottom, output_dim, bias_term=True,
     return relu
 
 
-def emb_layer(name, word_in, dict_size, emb_size, trainable=False):
+def emb_layer(name, word_in, dict_size, emb_size, trainable=True):
     """
     :param name: name
     :param word_in: [N,T]
@@ -185,3 +185,7 @@ def conv_relu_layer_with_pad(name, bottom, kernel_size, stride, output_dim, pad_
     return tf.nn.relu(conv_layer_with_pad(name, bottom, kernel_size, stride, output_dim, pad_size, padding=padding,
                                           bias_term=bias_term, weights_initializer=weights_initializer,
                                           biases_initializer=biases_initializer))
+
+
+def leaky_relu(in_tensor, leak=0.2):
+    return tf.maximum(in_tensor, leak * in_tensor)

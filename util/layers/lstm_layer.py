@@ -2,6 +2,14 @@ import tensorflow as tf
 
 
 def lstm_layer(name, tensor_in, out_length, num_layers):
+    """
+
+    :param name:
+    :param tensor_in: [T,N,D]
+    :param out_length: M
+    :param num_layers:
+    :return: [T,N,M]
+    """
     def build_lstm(_out_length):
         lstm_cell = tf.contrib.rnn.BasicLSTMCell(_out_length, state_is_tuple=True)
         return lstm_cell

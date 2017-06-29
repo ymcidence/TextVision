@@ -119,4 +119,4 @@ def net_scored_discriminator(input_tensor, output_dim=1):
     fc_1 = layers.fc_relu_layer('fc_1', conv_5, output_dim=1024)
     fc_d = layers.fc_layer('fc_d', fc_1, output_dim=1)
     fc_s = layers.fc_layer('fc_s', fc_1, output_dim=output_dim)
-    return fc_d, fc_s
+    return fc_d, tf.tanh(fc_s)

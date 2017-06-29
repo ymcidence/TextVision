@@ -1,5 +1,6 @@
 import gc
 import os
+from time import gmtime, strftime
 
 import numpy as np
 import tensorflow as tf
@@ -31,9 +32,9 @@ class TextGenImage(an.AbstractNet):
         if kwargs.get('emb_lstm') is not None:
             self.emb_lstm = kwargs.get('emb_lstm')
         else:
-            self.emb_lstm = 200
+            self.emb_lstm = 500
         self.fused_discriminator = True
-        self.sampled_variables = tf.random_uniform([self.batch_size, 200], minval=-1, maxval=1)
+        self.sampled_variables = tf.random_uniform([self.batch_size, 100], minval=-1, maxval=1)
         self.batch_image = tf.placeholder(tf.float32, [self.batch_size, 128, 64, 3])
         self.batch_sentence = tf.placeholder(tf.int32, [self.batch_size, self.seq_length])  # [N,T]
         self.subj_sup = tf.placeholder(tf.float32, [self.batch_size, self.seq_length])
@@ -57,6 +58,7 @@ class TextGenImage(an.AbstractNet):
                 feat_rel, att_rel = text_attention('att_2', lstm_sentence, words)
                 feat_obj, att_obj = text_attention('att_3', lstm_sentence, words)
                 feat_sentence = tf.concat([feat_sbj, feat_rel, feat_obj], axis=1)
+                feat_sentence = layers.leaky_relu(layers.fc_layer('fc_1', feat_sentence, 128))
                 # image_net_in = tf.concat([self.sampled_variables, feat_sentence], axis=1)
                 image_net_in = feat_sentence
         # generator
@@ -89,6 +91,10 @@ class TextGenImage(an.AbstractNet):
         tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/rep_obj', feat_obj)
         tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/att_sbj', tf.argmax(att_sbj, axis=1))
         tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/att_obj', tf.argmax(att_obj, axis=1))
+
+        tf.summary.image(NAME_SCOPE_ATTENTION + '/rels', rels)
+        tf.summary.histogram(NAME_SCOPE_ATTENTION + '/att_sbj', tf.argmax(att_sbj, axis=1))
+        tf.summary.histogram(NAME_SCOPE_ATTENTION + '/att_obj', tf.argmax(att_obj, axis=1))
         return fake_image, fake_decision, real_decision, att_sbj, att_rel, att_obj
 
     def _build_loss(self):
@@ -117,6 +123,7 @@ class TextGenImage(an.AbstractNet):
         tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/hehe', loss_gen)
         tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss', loss_dis)
         tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss_att', loss_att)
+        tf.summary.scalar(NAME_SCOPE_ATTENTION + '/loss_att', loss_att)
 
         return loss_gen, loss_dis
 
@@ -125,11 +132,10 @@ class TextGenImage(an.AbstractNet):
         trainer2 = tf.train.AdamOptimizer(0.0002, beta1=0.5)
         train_list_gen = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_GENERATIVE_NET)
         train_list_dis = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_DISCRIMINATIVE_NET)
-        train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
-                                               scope=NAME_SCOPE_ATTENTION + '/' + SUB_SCOPE_TEXT)
+        train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=NAME_SCOPE_ATTENTION)
 
         train_list_gen = train_list_gen  # + train_list_att_txt
-        train_list_dis = train_list_dis + train_list_att_txt
+        train_list_dis = train_list_dis  # + train_list_att_txt
         op_gen = trainer1.minimize(self.loss[0], var_list=train_list_gen, global_step=self.g_step)
         op_dis = trainer2.minimize(self.loss[1], var_list=train_list_dis, global_step=self.g_step)
 
@@ -143,7 +149,6 @@ class TextGenImage(an.AbstractNet):
         self.sess.run(op_init_emb)
 
     def train(self, max_iter, dataset, restore_file=None):
-        from time import gmtime, strftime
         time_string = strftime("%a%d%b%Y-%H%M%S", gmtime())
         ops = self._build_opt()
         initial_op = tf.global_variables_initializer()
@@ -178,7 +183,7 @@ class TextGenImage(an.AbstractNet):
             d_loss, _, dis_sum = self.sess.run([self.loss[1], ops[1], summary_dis], feed_dict=this_feed_dict)
             writer.add_summary(dis_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 
-            if i % 5 == 0:
+            if i % 2 == 0:
                 g_loss, _, gen_sum = self.sess.run([self.loss[0], ops[0], summary_gen], feed_dict=this_feed_dict)
                 writer.add_summary(gen_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 
@@ -188,3 +193,42 @@ class TextGenImage(an.AbstractNet):
 
             if i % 2000 == 0 and i > 0:
                 self._save(save_path, step)
+
+    def pre_train(self, max_iter, dataset):
+        loss_att_sbj = tf.nn.l2_loss(self.subj_sup - self.nets[3])
+        loss_att_rel = tf.nn.l2_loss(self.rel_sup - self.nets[4])
+        loss_att_obj = tf.nn.l2_loss(self.obj_sup - self.nets[5])
+
+        loss = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj)
+
+        trainer = tf.train.AdamOptimizer(0.00001)
+        train_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=NAME_SCOPE_ATTENTION)
+        opt = trainer.minimize(loss, self.g_step, var_list=train_list)
+
+        initial_op = tf.global_variables_initializer()
+        self.sess.run(initial_op)
+        self._init_embeddings()
+        summary = tf.summary.merge(tf.get_collection(tf.GraphKeys.SUMMARIES, scope=NAME_SCOPE_ATTENTION))
+
+        time_string = strftime("%a%d%b%Y-%H%M%S", gmtime())
+        summary_path = os.path.join(self.log_path, 'log', time_string) + os.sep
+        save_path = os.path.join(self.log_path, 'model', 'text_net') + os.sep
+        writer = tf.summary.FileWriter(summary_path)
+
+        if not os.path.exists(self.log_path):
+            os.mkdir(self.log_path)
+        if not os.path.exists(save_path):
+            os.mkdir(save_path)
+
+        for i in xrange(max_iter):
+            this_batch = dataset.next_batch()
+            this_feed_dict = {self.batch_sentence: this_batch['batch_text'],
+                              self.obj_sup: this_batch['batch_obj_sup'],
+                              self.subj_sup: this_batch['batch_subj_sup'],
+                              self.rel_sup: this_batch['batch_rel_sup']}
+            d_loss, _, dis_sum = self.sess.run([loss, opt, summary], feed_dict=this_feed_dict)
+            writer.add_summary(dis_sum, global_step=tf.train.global_step(self.sess, self.g_step))
+            print('Batch ' + str(i) + '(Global Step: ' + str(i) + '): ' + str(d_loss))
+            gc.collect()
+
+        self._save(save_path=save_path, step=max_iter, var_list=train_list)
