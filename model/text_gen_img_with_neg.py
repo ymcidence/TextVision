@@ -150,7 +150,7 @@ class ConTextGenImage(TextGenImage):
         if not os.path.exists(self.log_path):
             os.mkdir(self.log_path)
         if not os.path.exists(save_path):
-            os.mkdir(self.log_path+'model')
+
             os.mkdir(save_path)
 
         if restore_file is not None:
