@@ -74,8 +74,8 @@ class ConTextGenImage(TextGenImage):
         rels = tf.matmul(feat_sentence, feat_sentence, transpose_b=True)
         rels = tf.expand_dims(rels, 0)
         rels = tf.expand_dims(rels, -1)
-        tf.summary.image(an.NAME_SCOPE_GENERATIVE_NET + '/gen_im', fake_image)
-        tf.summary.image(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/real_im', self.batch_image)
+        tf.summary.image(an.NAME_SCOPE_GENERATIVE_NET + '/gen_im', fake_image, max_outputs=10)
+        tf.summary.image(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/real_im', self.batch_image, max_outputs=10)
         tf.summary.image(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/rels', rels)
         tf.summary.histogram(an.NAME_SCOPE_GENERATIVE_NET + '/gen_dec_hist', fake_decision)
         tf.summary.histogram(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/dis_dec_hist', real_decision)
@@ -112,8 +112,8 @@ class ConTextGenImage(TextGenImage):
             tf.matmul(self.nets[8], self.nets[8], transpose_b=True) - tf.eye(self.batch_size, self.batch_size))
         loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj + loss_rel)
 
-        loss_gen = loss_gen + 1. * loss_gen_score
-        loss_dis = loss_dis_fake + loss_dis_real + 1. * (loss_dis_score_fake + loss_w)  # + loss_att
+        loss_gen = loss_gen + 0.5 * loss_gen_score
+        loss_dis = loss_dis_fake + loss_dis_real + 0.5 * (loss_dis_score_fake + loss_w)  # + loss_att
 
         tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/hehe', loss_gen)
         tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss', loss_dis)
