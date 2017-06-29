@@ -28,6 +28,8 @@ class SimpleDataset(object):
         batch_end = self.batch_size + batch_start
         batch_image = [read_image(self.data_path + v + '.jpg') for v in self.meta['id'][batch_start:batch_end]]
         batch_text = self.meta.get('p_desc')[batch_start:batch_end, ...]
+        neg_text_ind = np.random.choice(self.set_size, self.batch_size)
+        batch_text_neg = self.meta.get('p_desc')[neg_text_ind, ...]
         batch_desc = self.meta.get('desc')[batch_start:batch_end, ...]
         batch_subj_sup = self.meta.get('subj_sup')[batch_start:batch_end, ...]
         batch_obj_sup = self.meta.get('obj_sup')[batch_start:batch_end, ...]
@@ -38,7 +40,7 @@ class SimpleDataset(object):
                           batch_obj_sup=batch_obj_sup,
                           batch_rel_sup=batch_rel_sup,
                           batch_subj_sup=batch_subj_sup,
-                          batch_noise=np.random.uniform(-1, 1, size=(self.batch_size, 450)))
+                          batch_ntext=batch_text_neg)
         self.batch_count = (self.batch_count + 1) % self.batch_num
         return this_batch
 

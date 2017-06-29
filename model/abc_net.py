@@ -47,10 +47,12 @@ class NetFactory(object):
     def get_net(**kwargs):
         from model.text_gen_img import TextGenImage
         from model.text_gen_img_with_score import ScoredTextGenImage
+        from model.text_gen_img_with_neg import ConTextGenImage
         cases = {
             'abstract': AbstractNet,
             't2i': TextGenImage,
-            'st2i': ScoredTextGenImage
+            'st2i': ScoredTextGenImage,
+            'ct2i': ConTextGenImage
         }
         model_name = kwargs.get('model')
         model = cases.get(model_name)
