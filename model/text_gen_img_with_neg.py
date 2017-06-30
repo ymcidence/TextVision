@@ -110,7 +110,7 @@ class ConTextGenImage(TextGenImage):
         loss_att_obj = tf.nn.l2_loss(self.obj_sup - self.nets[5])
         loss_rel = tf.nn.l2_loss(
             tf.matmul(self.nets[8], self.nets[8], transpose_b=True) - tf.eye(self.batch_size, self.batch_size))
-        loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj + loss_rel / 6)
+        loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj + loss_rel)
 
         loss_gen = loss_gen + 0.3 * loss_gen_score
         loss_dis = loss_dis_fake + loss_dis_real + 0.3 * (loss_dis_score_fake + loss_w) + loss_att
