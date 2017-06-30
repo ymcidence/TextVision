@@ -37,7 +37,7 @@ class ConTextGenImage(TextGenImage):
             feat_rel, att_rel = text_attention('att_2', lstm_sentence, words)
             feat_obj, att_obj = text_attention('att_3', lstm_sentence, words)
             feat_sentence = tf.concat([bn(feat_sbj), bn(feat_rel), bn(feat_obj)], axis=1)
-            feat_sentence = layers.leaky_relu(layers.fc_layer('fc_1', feat_sentence, 128))
+            feat_sentence = tf.tanh(layers.fc_layer('fc_1', feat_sentence, 128))
 
         return feat_sentence
 
@@ -53,7 +53,7 @@ class ConTextGenImage(TextGenImage):
                 feat_rel, att_rel = text_attention('att_2', lstm_sentence, words)
                 feat_obj, att_obj = text_attention('att_3', lstm_sentence, words)
                 feat_sentence = tf.concat([bn(feat_sbj), bn(feat_rel), bn(feat_obj)], axis=1)
-                feat_sentence = layers.leaky_relu(layers.fc_layer('fc_1', feat_sentence, 128))
+                feat_sentence = tf.tanh(layers.fc_layer('fc_1', feat_sentence, 128))
                 image_net_in = tf.concat([self.sampled_variables, feat_sentence], axis=1)
 
         with tf.variable_scope(NAME_SCOPE_ATTENTION, reuse=True):
@@ -110,10 +110,10 @@ class ConTextGenImage(TextGenImage):
         loss_att_obj = tf.nn.l2_loss(self.obj_sup - self.nets[5])
         loss_rel = tf.nn.l2_loss(
             tf.matmul(self.nets[8], self.nets[8], transpose_b=True) - tf.eye(self.batch_size, self.batch_size))
-        loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj + loss_rel)
+        loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj + loss_rel / 6)
 
-        loss_gen = loss_gen + 0.5 * loss_gen_score
-        loss_dis = loss_dis_fake + loss_dis_real + 0.5 * (loss_dis_score_fake + loss_w)  # + loss_att
+        loss_gen = loss_gen + 0.3 * loss_gen_score
+        loss_dis = loss_dis_fake + loss_dis_real + 0.3 * (loss_dis_score_fake + loss_w) + loss_att
 
         tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/hehe', loss_gen)
         tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss', loss_dis)
@@ -122,14 +122,14 @@ class ConTextGenImage(TextGenImage):
         return loss_gen, loss_dis
 
     def _build_opt(self):
-        trainer1 = tf.train.RMSPropOptimizer(0.00005)
-        trainer2 = tf.train.RMSPropOptimizer(0.00005)
+        trainer1 = tf.train.RMSPropOptimizer(0.0001)
+        trainer2 = tf.train.RMSPropOptimizer(0.0001)
         train_list_gen = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_GENERATIVE_NET)
         train_list_dis = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_DISCRIMINATIVE_NET)
-        # train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=NAME_SCOPE_ATTENTION)
+        train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=NAME_SCOPE_ATTENTION)
 
         train_list_gen = train_list_gen  # + train_list_att_txt
-        train_list_dis = train_list_dis  # + train_list_att_txt
+        train_list_dis = train_list_dis + train_list_att_txt
         op_gen = trainer1.minimize(self.loss[0], var_list=train_list_gen, global_step=self.g_step)
         op_dis_provisional = trainer2.minimize(self.loss[1], var_list=train_list_dis, global_step=self.g_step)
 
@@ -150,7 +150,6 @@ class ConTextGenImage(TextGenImage):
         if not os.path.exists(self.log_path):
             os.mkdir(self.log_path)
         if not os.path.exists(save_path):
-
             os.mkdir(save_path)
 
         if restore_file is not None:
@@ -176,7 +175,7 @@ class ConTextGenImage(TextGenImage):
             d_loss, _, dis_sum = self.sess.run([self.loss[1], ops[1], summary_dis], feed_dict=this_feed_dict)
             writer.add_summary(dis_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 
-            if i % 1 == 0:
+            if i % 2 == 0:
                 g_loss, _, gen_sum = self.sess.run([self.loss[0], ops[0], summary_gen], feed_dict=this_feed_dict)
                 writer.add_summary(gen_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 

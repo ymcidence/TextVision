@@ -113,10 +113,10 @@ def net_scored_discriminator(input_tensor, output_dim=1):
     conv_4 = layers.conv_relu_layer('conv_4', conv_3, kernel_size=kernel_size, stride=stride,
                                     output_dim=starting_out_dim * 6)
     conv_4 = leaky_relu(bn(conv_4))
-    conv_5 = layers.conv_relu_layer('conv_5', conv_4, kernel_size=kernel_size, stride=stride,
-                                    output_dim=starting_out_dim * 8)
-    conv_5 = leaky_relu(bn(conv_5))
-    fc_1 = layers.fc_relu_layer('fc_1', conv_5, output_dim=1024)
+    # conv_5 = layers.conv_relu_layer('conv_5', conv_4, kernel_size=kernel_size, stride=stride,
+    #                                 output_dim=starting_out_dim * 8)
+    # conv_5 = leaky_relu(bn(conv_5))
+    fc_1 = layers.fc_relu_layer('fc_1', conv_4, output_dim=1024)
     fc_d = layers.fc_layer('fc_d', fc_1, output_dim=1)
     fc_s = layers.fc_layer('fc_s', fc_1, output_dim=output_dim)
     return fc_d, tf.tanh(fc_s)
