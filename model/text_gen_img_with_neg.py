@@ -122,8 +122,8 @@ class ConTextGenImage(TextGenImage):
         return loss_gen, loss_dis
 
     def _build_opt(self):
-        trainer1 = tf.train.RMSPropOptimizer(0.0001)
-        trainer2 = tf.train.RMSPropOptimizer(0.0001)
+        trainer1 = tf.train.RMSPropOptimizer(0.00005)
+        trainer2 = tf.train.RMSPropOptimizer(0.00005)
         train_list_gen = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_GENERATIVE_NET)
         train_list_dis = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_DISCRIMINATIVE_NET)
         train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=NAME_SCOPE_ATTENTION)
@@ -183,5 +183,5 @@ class ConTextGenImage(TextGenImage):
             print('Batch ' + str(i) + '(Global Step: ' + str(step) + '): ' + str(g_loss) + '; ' + str(d_loss))
             gc.collect()
 
-            if i % 2000 == 0 and i > 0:
+            if i % 5000 == 0 and i > 0:
                 self._save(save_path, step)
