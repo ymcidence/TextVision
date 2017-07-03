@@ -34,7 +34,7 @@ class TextGenImage(an.AbstractNet):
         else:
             self.emb_lstm = 500
         self.fused_discriminator = True
-        self.sampled_variables = tf.random_uniform([self.batch_size, 100], minval=-1, maxval=1)
+        self.sampled_variables = tf.random_uniform([self.batch_size, 64], minval=-0.7, maxval=0.7)
         self.batch_image = tf.placeholder(tf.float32, [self.batch_size, 128, 64, 3])
         self.batch_sentence = tf.placeholder(tf.int32, [self.batch_size, self.seq_length])  # [N,T]
         self.subj_sup = tf.placeholder(tf.float32, [self.batch_size, self.seq_length])

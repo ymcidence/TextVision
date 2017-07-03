@@ -21,7 +21,7 @@ def bn(_in_tensor):
     return tf.layers.batch_normalization(_in_tensor, momentum=0.9, epsilon=1e-5)
 
 
-class ConTextGenImage(TextGenImage):
+class PreTextGenImage(TextGenImage):
     def __init__(self, **kwargs):
         self.batch_neg_sentence = tf.placeholder(tf.int32, [kwargs['batch_size'], kwargs['seq_length']])
         super().__init__(**kwargs)
@@ -113,7 +113,7 @@ class ConTextGenImage(TextGenImage):
         loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj + loss_rel)
 
         loss_gen = loss_gen + 0.3 * loss_gen_score
-        loss_dis = loss_dis_fake + loss_dis_real + 0.3 * (loss_dis_score_fake + loss_w)  # + loss_att
+        loss_dis = loss_dis_fake + loss_dis_real + 0.3 * (loss_dis_score_fake + loss_w) + loss_att
 
         tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/hehe', loss_gen)
         tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss', loss_dis)
@@ -129,7 +129,7 @@ class ConTextGenImage(TextGenImage):
         train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=NAME_SCOPE_ATTENTION)
 
         train_list_gen = train_list_gen  # + train_list_att_txt
-        train_list_dis = train_list_dis  # + train_list_att_txt
+        train_list_dis = train_list_dis + train_list_att_txt
         op_gen = trainer1.minimize(self.loss[0], var_list=train_list_gen, global_step=self.g_step)
         op_dis_provisional = trainer2.minimize(self.loss[1], var_list=train_list_dis, global_step=self.g_step)
 
@@ -175,7 +175,7 @@ class ConTextGenImage(TextGenImage):
             d_loss, _, dis_sum = self.sess.run([self.loss[1], ops[1], summary_dis], feed_dict=this_feed_dict)
             writer.add_summary(dis_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 
-            if i % 1 == 0:
+            if i % 2 == 0:
                 g_loss, _, gen_sum = self.sess.run([self.loss[0], ops[0], summary_gen], feed_dict=this_feed_dict)
                 writer.add_summary(gen_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 

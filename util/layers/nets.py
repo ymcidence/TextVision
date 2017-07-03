@@ -113,6 +113,31 @@ def net_scored_discriminator(input_tensor, output_dim=1):
     conv_4 = layers.conv_relu_layer('conv_4', conv_3, kernel_size=kernel_size, stride=stride,
                                     output_dim=starting_out_dim * 6)
     conv_4 = leaky_relu(bn(conv_4))
+    conv_5 = layers.conv_relu_layer('conv_5', conv_4, kernel_size=kernel_size, stride=stride,
+                                    output_dim=starting_out_dim * 8)
+    conv_5 = leaky_relu(bn(conv_5))
+    fc_1 = layers.fc_relu_layer('fc_1', conv_5, output_dim=1024)
+    fc_d = layers.fc_layer('fc_d', fc_1, output_dim=1)
+    fc_s = layers.fc_layer('fc_s', fc_1, output_dim=output_dim)
+    return fc_d, tf.tanh(fc_s)
+
+
+def net_scored_discriminator_2(input_tensor, output_dim=1):
+    starting_out_dim = 64
+    kernel_size = 5
+    stride = 2
+    conv_1 = layers.conv_relu_layer('conv_1', input_tensor, kernel_size=kernel_size, stride=stride,
+                                    output_dim=starting_out_dim)
+    conv_1 = leaky_relu(conv_1)
+    conv_2 = layers.conv_relu_layer('conv_2', conv_1, kernel_size=kernel_size, stride=stride,
+                                    output_dim=starting_out_dim * 2)
+    conv_2 = leaky_relu(bn(conv_2))
+    conv_3 = layers.conv_relu_layer('conv_3', conv_2, kernel_size=kernel_size, stride=stride,
+                                    output_dim=starting_out_dim * 4)
+    conv_3 = leaky_relu(bn(conv_3))
+    conv_4 = layers.conv_relu_layer('conv_4', conv_3, kernel_size=kernel_size, stride=stride,
+                                    output_dim=starting_out_dim * 6)
+    conv_4 = leaky_relu(bn(conv_4))
     # conv_5 = layers.conv_relu_layer('conv_5', conv_4, kernel_size=kernel_size, stride=stride,
     #                                 output_dim=starting_out_dim * 8)
     # conv_5 = leaky_relu(bn(conv_5))
