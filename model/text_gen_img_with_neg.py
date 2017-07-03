@@ -175,7 +175,7 @@ class ConTextGenImage(TextGenImage):
             d_loss, _, dis_sum = self.sess.run([self.loss[1], ops[1], summary_dis], feed_dict=this_feed_dict)
             writer.add_summary(dis_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 
-            if i % 1 == 0:
+            if i % 2 == 0:
                 g_loss, _, gen_sum = self.sess.run([self.loss[0], ops[0], summary_gen], feed_dict=this_feed_dict)
                 writer.add_summary(gen_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 
