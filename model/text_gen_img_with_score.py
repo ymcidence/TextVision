@@ -81,8 +81,8 @@ class ScoredTextGenImage(TextGenImage):
             tf.matmul(self.nets[8], self.nets[8], transpose_b=True) - tf.eye(self.batch_size, self.batch_size))
         loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj + loss_rel)
 
-        loss_gen = loss_gen + 0.3 * loss_gen_score
-        loss_dis = loss_dis_fake + loss_dis_real + 0.3 * (loss_dis_score_fake + loss_dis_score_real) + loss_att
+        loss_gen = loss_gen + 0.25 * loss_gen_score
+        loss_dis = loss_dis_fake + loss_dis_real + 0.25 * (loss_dis_score_fake + loss_dis_score_real)  # + loss_att
 
         tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/hehe', loss_gen)
         tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss', loss_dis)
@@ -91,14 +91,14 @@ class ScoredTextGenImage(TextGenImage):
         return loss_gen, loss_dis
 
     def _build_opt(self):
-        trainer1 = tf.train.RMSPropOptimizer(0.0001)
-        trainer2 = tf.train.RMSPropOptimizer(0.0001)
+        trainer1 = tf.train.RMSPropOptimizer(0.00005)
+        trainer2 = tf.train.RMSPropOptimizer(0.00005)
         train_list_gen = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_GENERATIVE_NET)
         train_list_dis = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=an.NAME_SCOPE_DISCRIMINATIVE_NET)
         train_list_att_txt = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=NAME_SCOPE_ATTENTION)
 
         train_list_gen = train_list_gen  # + train_list_att_txt
-        train_list_dis = train_list_dis + train_list_att_txt
+        train_list_dis = train_list_dis  # + train_list_att_txt
         op_gen = trainer1.minimize(self.loss[0], var_list=train_list_gen, global_step=self.g_step)
         op_dis_provisional = trainer2.minimize(self.loss[1], var_list=train_list_dis, global_step=self.g_step)
 
