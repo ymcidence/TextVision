@@ -191,7 +191,7 @@ class TextGenImage(an.AbstractNet):
             print('Batch ' + str(i) + '(Global Step: ' + str(step) + '): ' + str(g_loss) + '; ' + str(d_loss))
             gc.collect()
 
-            if i % 2000 == 0 and i > 0:
+            if i % 8000 == 0 and i > 0:
                 self._save(save_path, step)
 
     def pre_train(self, max_iter, dataset):
