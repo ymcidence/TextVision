@@ -22,8 +22,8 @@ def run():
     )
     model = NetFactory.get_net(**settings)
     data = dataset.SimpleDataset(**settings)
-    restore = '/home/ymcidence/WorkSpace/Loggings/st2i/model/Wed28Jun2017-125207/YMModel-21335'
-    model.train(50000, data, restore_file=restore)
+    restore = None  # '/home/ymcidence/WorkSpace/Loggings/st2i/model/Wed28Jun2017-125207/YMModel-21335'
+    model.train(15000, data, restore_file=restore)
 
 
 if __name__ == '__main__':

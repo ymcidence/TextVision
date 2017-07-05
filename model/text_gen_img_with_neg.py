@@ -64,10 +64,10 @@ class ConTextGenImage(TextGenImage):
             fake_image = nets.net_generator(image_net_in)
         # discriminator
         with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET):
-            fake_decision, fake_rep = nets.net_scored_discriminator_2(fake_image, feat_sentence.shape[1].value)
+            fake_decision, fake_rep = nets.net_scored_discriminator(fake_image, feat_sentence.shape[1].value)
             fake_score = tf.multiply(fake_rep, feat_sentence)
         with tf.variable_scope(an.NAME_SCOPE_DISCRIMINATIVE_NET, reuse=True):
-            real_decision, real_rep = nets.net_scored_discriminator_2(self.batch_image, feat_sentence.shape[1].value)
+            real_decision, real_rep = nets.net_scored_discriminator(self.batch_image, feat_sentence.shape[1].value)
             real_score = tf.multiply(real_rep, feat_sentence)
             neg_score = tf.multiply(real_rep, feat_neg_sentence)
 
@@ -112,8 +112,8 @@ class ConTextGenImage(TextGenImage):
             tf.matmul(self.nets[8], self.nets[8], transpose_b=True) - tf.eye(self.batch_size, self.batch_size))
         loss_att = 0.01 * (loss_att_sbj + loss_att_rel + loss_att_obj + loss_rel)
 
-        loss_gen = loss_gen + 0.3 * loss_gen_score
-        loss_dis = loss_dis_fake + loss_dis_real + 0.3 * (loss_dis_score_fake + loss_w)  # + loss_att
+        loss_gen = loss_gen + 0.2 * loss_gen_score
+        loss_dis = loss_dis_fake + loss_dis_real + 0.2 * (loss_dis_score_fake + loss_w)  # + loss_att
 
         tf.summary.scalar(an.NAME_SCOPE_GENERATIVE_NET + '/hehe', loss_gen)
         tf.summary.scalar(an.NAME_SCOPE_DISCRIMINATIVE_NET + '/loss', loss_dis)

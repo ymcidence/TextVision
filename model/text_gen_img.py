@@ -34,7 +34,7 @@ class TextGenImage(an.AbstractNet):
         else:
             self.emb_lstm = 500
         self.fused_discriminator = True
-        self.sampled_variables = tf.random_uniform([self.batch_size, 64], minval=-0.7, maxval=0.7)
+        self.sampled_variables = tf.random_uniform([self.batch_size, 75], minval=-0.7, maxval=0.7)
         self.batch_image = tf.placeholder(tf.float32, [self.batch_size, 128, 64, 3])
         self.batch_sentence = tf.placeholder(tf.int32, [self.batch_size, self.seq_length])  # [N,T]
         self.subj_sup = tf.placeholder(tf.float32, [self.batch_size, self.seq_length])
@@ -183,7 +183,7 @@ class TextGenImage(an.AbstractNet):
             d_loss, _, dis_sum = self.sess.run([self.loss[1], ops[1], summary_dis], feed_dict=this_feed_dict)
             writer.add_summary(dis_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 
-            if i % 2 == 0:
+            if i % 3 == 0:
                 g_loss, _, gen_sum = self.sess.run([self.loss[0], ops[0], summary_gen], feed_dict=this_feed_dict)
                 writer.add_summary(gen_sum, global_step=tf.train.global_step(self.sess, self.g_step))
 
